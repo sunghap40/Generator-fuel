@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>발전기 시간당 연료 소모량 계산기</title>
+    <style>
+        body {
+            font-family: 'Malgun Gothic', '맑은 고딕', sans-serif;
+            background-color: #f4f6f9;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 1050px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        h2 {
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 22px;
+        }
+        .badge {
+            background-color: #e9ecef;
+            border: 1px solid #ced4da;
+            padding: 5px 12px;
+            font-size: 13px;
+            font-weight: bold;
+            border-radius: 4px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: center;
+            font-size: 13px;
+        }
+        th, td {
+            border: 1px solid #bbb;
+            padding: 8px 5px;
+        }
+        th {
+            background-color: #e9eef4;
+            font-weight: bold;
+        }
+        /* 그룹별 배경색 지정 */
+        .bg-sub { background-color: #f8f9fa; }
+        .bg-idc { background-color: #eef2f7; font-weight: bold; }
+        .bg-total { background-color: #e8ecf1; font-weight: bold; }
+        
+        /* 입력 셀 스타일 (엑셀의 노란색 강조) */
+        .input-cell {
+            background-color: #fff9c4 !important;
+        }
+        .input-cell input {
+            width: 85%;
+            padding: 4px;
+            text-align: right;
+            border: 1px solid #fbc02d;
+            background-color: #fffde7;
+            font-weight: bold;
+            font-size: 13px;
+            border-radius: 3px;
+        }
+        .input-cell input:focus {
+            outline: 2px solid #f57f17;
+        }
+
+        /* 하단 주요 결과 강조 */
+        .highlight-res {
+            background-color: #fff59d !important;
+            font-weight: bold;
+            font-size: 14px;
+            color: #b71c1c;
+        }
+
+        /* 하단 메모 영역 */
+        .memo-box {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #fafafa;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 12.5px;
+            line-height: 1.8;
+            color: #555;
+        }
+        .memo-box b {
+            color: #222;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h2>▣ 발전기 시간당 연료 소모량</h2>
+        <div class="badge">직선보간법 적용</div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th rowspan="2">구분</th>
+                <th rowspan="2">발전용량</th>
+                <th colspan="4">부하율 / 연료 소모량(리터)</th>
+                <th rowspan="2">현재부하</th>
+                <th rowspan="2">부하율</th>
+                <th rowspan="2">소비량<br>[L/H]</th>
+                <th colspan="3">
+                    연료보유 / 가동가능시간 : 
+                    <span class="input-cell" style="padding: 2px 6px; border-radius: 4px;">
+                        <input type="number" id="fuelHolding" value="8315" style="width: 80px; text-align: center;" oninput="calculateAll()"> L
+                    </span>
+                </th>
+            </tr>
+            <tr>
+                <th>25 %</th>
+                <th>50 %</th>
+                <th>75 %</th>
+                <th>100 %</th>
+                <th>100%부하</th>
+                <th>현재부하</th>
+                <th>비상시부하</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- 3층 발전기 -->
+            <tr>
+                <td>3층</td>
+                <td>2500 kW</td>
+                <td>197</td>
+                <td>354</td>
+                <td>507</td>
+                <td>650</td>
+                <td class="input-cell"><input type="number" id="load_3f" value="1604" oninput="calculateAll()"> kW</td>
+                <td id="ratio_3f">0%</td>
+                <td id="burn_3f">0 ℓ</td>
+                <td id="time_100_3f">0.0</td>
+                <td id="time_curr_3f">0.0</td>
+                <td id="time_emg_3f">0.0</td>
+            </tr>
+
+            <!-- 4층 발전기 -->
+            <tr>
+                <td>4층</td>
+                <td>3300 kW</td>
+                <td>246</td>
+                <td>429</td>
+                <td>662</td>
+                <td>879</td>
+                <td class="input-cell"><input type="number" id="load_4f" value="2040" oninput="calculateAll()"> kW</td>
+                <td id="ratio_4f">0%</td>
+                <td id="burn_4f">0 ℓ</td>
+                <td id="time_100_4f">0.0</td>
+                <td id="time_curr_4f">0.0</td>
+                <td id="time_emg_4f">0.0</td>
+            </tr>
+
+            <!-- IDC 전체 합산 -->
+            <tr class="bg-idc">
+                <td>IDC 전체</td>
+                <td>5800 kW</td>
+                <td>443</td>
+                <td>783</td>
+                <td>1169</td>
+                <td>1529</td>
+                <td id="load_idc">0 kW</td>
+                <td id="ratio_idc">0%</td>
+                <td id="burn_idc">0 ℓ</td>
+                <td id="time_100_idc">0.0</td>
+                <td id="time_curr_idc">0.0</td>
+                <td id="time_emg_idc">0.0</td>
+            </tr>
+
+            <!-- 건물 발전기 -->
+            <tr>
+                <td>건물</td>
+                <td>1500 kW</td>
+                <td>103</td>
+                <td>205</td>
+                <td>308</td>
+                <td>411</td>
+                <td class="input-cell"><input type="number" id="load_bldg" value="150" oninput="calculateAll()"> kW</td>
+                <td id="ratio_bldg">0%</td>
+                <td id="burn_bldg">0 ℓ</td>
+                <td id="time_100_bldg">0.0</td>
+                <td id="time_curr_bldg">0.0</td>
+                <td id="time_emg_bldg">0.0</td>
+            </tr>
+
+            <!-- 전체 합산 -->
+            <tr class="bg-total">
+                <td>전체</td>
+                <td>7300 kW</td>
+                <td>546</td>
+                <td>989</td>
+                <td>1477</td>
+                <td>1940</td>
+                <td id="load_total">0 kW</td>
+                <td id="ratio_total">0%</td>
+                <td id="burn_total">0 ℓ</td>
+                <td id="time_100_total">0.0 시간</td>
+                <td id="time_curr_total" class="highlight-res">0.0 시간</td>
+                <td id="time_emg_total">0.0 시간</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="memo-box">
+        ▶ <b>기준일</b> : 상시 계산 (입력값 실시간 연동)<br>
+        * <b>경유 주탱크 용량</b> : 10,000 L<br>
+        * <b>현재 부하란?</b> : 데이터센터 현재 전체 부하(라디에이터 포함) + 건물 발전기 가동 시 실제 부하량<br>
+        * <b>비상시 부하란?</b> : 데이터센터 현재 전체 부하 + 건물 발전기 최대 부하(1,500 kW)<br>
+        * <b>주탱크-서비스탱크 유류 공급능력</b> : 분당 60리터 / 시간당 3,600리터 (발전기 3대 최대 소모량 1,940 L/H 충족)
+    </div>
+</div>
+
+<script>
+    // 1. 발전기 제원 데이터 (용량 kW, [25%, 50%, 75%, 100%] 소비량 L/h)
+    const SPECS = {
+        '3f':   { cap: 2500, rates: [197, 354, 507, 650] },
+        '4f':   { cap: 3300, rates: [246, 429, 662, 879] },
+        'bldg': { cap: 1500, rates: [103, 205, 308, 411] }
+    };
+
+    // 2. 엑셀 수식과 동일한 4구간 직선보간법 함수
+    function getFuelRate(loadRatio, rates) {
+        const [r25, r50, r75, r100] = rates;
+        
+        if (loadRatio <= 0) return 0;
+        if (loadRatio <= 0.25) {
+            return (r25 / 0.25) * loadRatio;
+        } else if (loadRatio <= 0.50) {
+            return r25 + (r50 - r25) * ((loadRatio - 0.25) / 0.25);
+        } else if (loadRatio <= 0.75) {
+            return r50 + (r75 - r50) * ((loadRatio - 0.50) / 0.25);
+        } else if (loadRatio <= 1.0) {
+            return r75 + (r100 - r75) * ((loadRatio - 0.75) / 0.25);
+        } else {
+            // 100% 초과 과부하 시 외삽
+            return r100 + (r100 - r75) * ((loadRatio - 1.0) / 0.25);
+        }
+    }
+
+    // 3. 전체 테이블 실시간 연산
+    function calculateAll() {
+        const fuel = parseFloat(document.getElementById('fuelHolding').value) || 0;
+        
+        // 입력 부하 읽기
+        const load3f = parseFloat(document.getElementById('load_3f').value) || 0;
+        const load4f = parseFloat(document.getElementById('load_4f').value) || 0;
+        const loadBldg = parseFloat(document.getElementById('load_bldg').value) || 0;
+
+        // 개별 부하율
+        const ratio3f = load3f / SPECS['3f'].cap;
+        const ratio4f = load4f / SPECS['4f'].cap;
+        const ratioBldg = loadBldg / SPECS['bldg'].cap;
+
+        // 개별 시간당 소비량 (반올림 처리)
+        const burn3f = Math.round(getFuelRate(ratio3f, SPECS['3f'].rates));
+        const burn4f = Math.round(getFuelRate(ratio4f, SPECS['4f'].rates));
+        const burnBldg = Math.round(getFuelRate(ratioBldg, SPECS['bldg'].rates));
+
+        // 건물 발전기 비상시(100% 부하) 소비량
+        const burnBldgMax = SPECS['bldg'].rates[3]; // 411 L
+
+        // IDC 및 전체 합산
+        const loadIdc = load3f + load4f;
+        const burnIdc = burn3f + burn4f;
+        const ratioIdc = loadIdc / (SPECS['3f'].cap + SPECS['4f'].cap);
+
+        const loadTotal = loadIdc + loadBldg;
+        const burnTotal = burnIdc + burnBldg;
+        const ratioTotal = loadTotal / (SPECS['3f'].cap + SPECS['4f'].cap + SPECS['bldg'].cap);
+
+        // 비상시 전체 소비량 = IDC 현재 소비량 + 건물 발전기 100% 가동 소비량
+        const burnEmergencyTotal = burnIdc + burnBldgMax;
+
+        // 테이블 출력 업데이트 함수
+        function updateRow(prefix, ratio, burn, cap100Burn) {
+            document.getElementById(`ratio_${prefix}`).innerText = (ratio * 100).toFixed(0) + '%';
+            document.getElementById(`burn_${prefix}`).innerText = burn + ' ℓ';
+            document.getElementById(`time_100_${prefix}`).innerText = (cap100Burn > 0 ? (fuel / cap100Burn).toFixed(1) : 0);
+            document.getElementById(`time_curr_${prefix}`).innerText = (burn > 0 ? (fuel / burn).toFixed(1) : 0);
+            document.getElementById(`time_emg_${prefix}`).innerText = (burn > 0 ? (fuel / burn).toFixed(1) : 0);
+        }
+
+        // 개별 발전기 반영
+        updateRow('3f', ratio3f, burn3f, SPECS['3f'].rates[3]);
+        updateRow('4f', ratio4f, burn4f, SPECS['4f'].rates[3]);
+        
+        // IDC 전체 반영
+        document.getElementById('load_idc').innerText = loadIdc + ' kW';
+        document.getElementById('ratio_idc').innerText = (ratioIdc * 100).toFixed(0) + '%';
+        document.getElementById('burn_idc').innerText = burnIdc + ' ℓ';
+        document.getElementById('time_100_idc').innerText = (fuel / (SPECS['3f'].rates[3] + SPECS['4f'].rates[3])).toFixed(1);
+        document.getElementById('time_curr_idc').innerText = burnIdc > 0 ? (fuel / burnIdc).toFixed(1) : '0.0';
+        document.getElementById('time_emg_idc').innerText = burnIdc > 0 ? (fuel / burnIdc).toFixed(1) : '0.0';
+
+        // 건물 발전기 반영 (비상시 가동시간은 100% 부하 기준 적용)
+        document.getElementById('ratio_bldg').innerText = (ratioBldg * 100).toFixed(0) + '%';
+        document.getElementById('burn_bldg').innerText = burnBldg + ' ℓ';
+        document.getElementById('time_100_bldg').innerText = (fuel / burnBldgMax).toFixed(1);
+        document.getElementById('time_curr_bldg').innerText = burnBldg > 0 ? (fuel / burnBldg).toFixed(1) : '0.0';
+        document.getElementById('time_emg_bldg').innerText = (fuel / burnBldgMax).toFixed(1);
+
+        // 종합(전체) 행 업데이트
+        document.getElementById('load_total').innerText = loadTotal + ' kW';
+        document.getElementById('ratio_total').innerText = (ratioTotal * 100).toFixed(0) + '%';
+        document.getElementById('burn_total').innerText = burnTotal + ' ℓ';
+        
+        const burnAll100 = SPECS['3f'].rates[3] + SPECS['4f'].rates[3] + burnBldgMax; // 1940 L
+        document.getElementById('time_100_total').innerText = (fuel / burnAll100).toFixed(1) + ' 시간';
+        document.getElementById('time_curr_total').innerText = burnTotal > 0 ? (fuel / burnTotal).toFixed(1) + ' 시간' : '0.0 시간';
+        document.getElementById('time_emg_total').innerText = burnEmergencyTotal > 0 ? (fuel / burnEmergencyTotal).toFixed(1) + ' 시간' : '0.0 시간';
+    }
+
+    // 페이지 로드 시 초기 계산 실행
+    window.onload = calculateAll;
+</script>
+
+</body>
+</html>
